@@ -1,0 +1,2 @@
+- Rename all .tsx files to .jsx using batch command
+- Update import in src/main.tsx from './App.tsx' to './App.jsx'
