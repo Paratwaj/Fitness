@@ -1,4 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { jwtDecode } from 'jwt-decode';
+import toast from 'react-hot-toast';
+import { authAPI } from '../services/api';
 
 const AuthContext = createContext(undefined);
 
@@ -10,108 +13,71 @@ export const useAuth = () => {
   return context;
 };
 
-// Mock user data
-const mockUsers = [
-  {
-    id: '1',
-    name: 'John Doe',
-    email: 'member@example.com',
-    role: 'member',
-    avatar: 'https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=300',
-    joinDate: '2024-01-15',
-    subscription: {
-      id: 'sub1',
-      planId: 'premium',
-      memberId: '1',
-      startDate: '2024-01-15',
-      endDate: '2024-07-15',
-      status: 'active',
-      autoRenew: true
-    },
-    assignedTrainer: '2',
-    stats: {
-      currentWeight: 180,
-      goalWeight: 165,
-      startWeight: 190
-    }
-  },
-  {
-    id: '2',
-    name: 'Sarah Johnson',
-    email: 'trainer@example.com',
-    role: 'trainer',
-    avatar: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=300',
-    joinDate: '2023-06-01',
-    specialization: ['Weight Training', 'Cardio', 'Nutrition'],
-    assignedMembers: ['1', '3'],
-    certifications: ['NASM-CPT', 'ACSM-EP']
-  },
-  {
-    id: '3',
-    name: 'Mike Wilson',
-    email: 'admin@example.com',
-    role: 'admin',
-    avatar: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=300',
-    joinDate: '2023-01-01',
-    permissions: ['manage_users', 'manage_plans', 'view_analytics', 'manage_payments']
-  }
-];
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Persist auth on mount
   useEffect(() => {
-    // Check for stored auth
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const decoded = jwtDecode(token);
+        setUser(decoded);
+      } catch (error) {
+        localStorage.removeItem('token');
+        toast.error('Invalid token. Please login again.');
+      }
     }
+    setIsLoading(false);
   }, []);
 
   const login = async (email, password) => {
     setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const foundUser = mockUsers.find(u => u.email === email);
-    if (foundUser && password === 'password') {
-      setUser(foundUser);
-      localStorage.setItem('user', JSON.stringify(foundUser));
-      setIsLoading(false);
+    try {
+      const response = await authAPI.login({ email, password });
+      const { token } = response.data;
+      localStorage.setItem('token', token);
+      const decoded = jwtDecode(token);
+      setUser(decoded);
+      toast.success('Login successful!');
       return true;
+    } catch (error) {
+      toast.error('Invalid credentials. Please try again.');
+      return false;
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
-    return false;
   };
 
   const register = async (userData) => {
     setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const newUser = {
-      ...userData,
-      id: Date.now().toString(),
-      joinDate: new Date().toISOString().split('T')[0]
-    };
-    
-    setUser(newUser);
-    localStorage.setItem('user', JSON.stringify(newUser));
-    setIsLoading(false);
-    return true;
+    try {
+      const response = await authAPI.register(userData);
+      const { token } = response.data; // Assume register returns token
+      localStorage.setItem('token', token);
+      const decoded = jwtDecode(token);
+      setUser(decoded);
+      toast.success('Registration successful! Welcome aboard.');
+      return true;
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Registration failed. Please try again.');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    toast.success('Logged out successfully.');
   };
 
+  const isAuthenticated = !!user;
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, register, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, register, isLoading, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );

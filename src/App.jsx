@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components/Layout/Header';
 import { Footer } from './components/Layout/Footer';
@@ -12,16 +13,16 @@ import { TrainerDashboard } from './pages/Dashboard/Trainer';
 import { AdminDashboard } from './pages/Dashboard/Admin';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { user } = useAuth();
-  
-  if (!user) {
+  const { isAuthenticated, user } = useAuth();
+
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
+
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -67,6 +68,12 @@ const AppContent = () => {
               </ProtectedRoute>
             }
           />
+          <Route path="/about" element={<Navigate to="/" replace />} />
+          <Route path="/contact" element={<Navigate to="/" replace />} />
+          <Route path="/help" element={<Navigate to="/" replace />} />
+          <Route path="/privacy" element={<Navigate to="/" replace />} />
+          <Route path="/terms" element={<Navigate to="/" replace />} />
+          <Route path="/cancellation" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       <Footer />
@@ -79,6 +86,7 @@ function App() {
     <AuthProvider>
       <Router>
         <AppContent />
+        <Toaster position="top-right" />
       </Router>
     </AuthProvider>
   );

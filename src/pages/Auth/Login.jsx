@@ -19,9 +19,12 @@ export const Login = () => {
 
     const success = await login(formData.email, formData.password);
     if (success) {
-      navigate('/');
-    } else {
-      setError('Invalid email or password. Try: member@example.com / trainer@example.com / admin@example.com with password "password"');
+      // Redirect based on role
+      const { user } = useAuth();
+      if (user.role === 'member') navigate('/member');
+      else if (user.role === 'trainer') navigate('/trainer');
+      else if (user.role === 'admin') navigate('/admin');
+      else navigate('/');
     }
   };
 
@@ -144,7 +147,7 @@ export const Login = () => {
           </div>
         </div>
 
-        {/* Demo Accounts */}
+        {/* Demo Accounts - Remove for production */}
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
           <h3 className="text-white font-semibold mb-4 text-center">Demo Accounts</h3>
           <div className="space-y-3">

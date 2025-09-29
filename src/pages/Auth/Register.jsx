@@ -53,14 +53,17 @@ export const Register = () => {
     const success = await register({
       name: formData.name,
       email: formData.email,
-      role: formData.role,
-      avatar: `https://images.pexels.com/photos/${Math.floor(Math.random() * 1000000)}/pexels-photo.jpeg?auto=compress&cs=tinysrgb&w=150`
+      password: formData.password,
+      role: formData.role
     });
 
     if (success) {
-      navigate('/');
-    } else {
-      setErrors(['Registration failed. Please try again.']);
+      // Redirect based on role
+      const { user } = useAuth();
+      if (user.role === 'member') navigate('/member');
+      else if (user.role === 'trainer') navigate('/trainer');
+      else if (user.role === 'admin') navigate('/admin');
+      else navigate('/');
     }
   };
 
