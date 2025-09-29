@@ -66,6 +66,8 @@ export const subscriptionsAPI = {
 export const contentAPI = {
   getWorkouts: () => api.get('/content/workout'),
   getDiets: () => api.get('/content/diet'),
+  getFeed: () => api.get('/content/feed'),
+  getRecommendations: () => api.get('/ai/for-you'),
   assign: (assignData) => api.post('/content/assign', assignData),
 };
 

@@ -1,17 +1,20 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { 
-  Play, 
-  CheckCircle, 
-  Star, 
-  Users, 
-  Award, 
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  Play,
+  CheckCircle,
+  Star,
+  Users,
+  Award,
   Target,
   ArrowRight,
   Dumbbell,
   Heart,
-  TrendingUp
+  TrendingUp,
+  Apple
 } from 'lucide-react';
+import { contentAPI } from '../services/api';
+import toast from 'react-hot-toast';
 
 const features = [
   {
@@ -68,6 +71,44 @@ const stats = [
 ];
 
 export const Landing = () => {
+  const navigate = useNavigate();
+  const [randomContent, setRandomContent] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRandomContent = async () => {
+      try {
+        const response = await contentAPI.getFeed();
+        // Get random 3 items
+        const shuffled = response.data.sort(() => 0.5 - Math.random());
+        setRandomContent(shuffled.slice(0, 3));
+      } catch (error) {
+        console.error('Error fetching content:', error);
+        // Fallback to empty array
+        setRandomContent([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRandomContent();
+  }, []);
+
+  const handleContentClick = (item) => {
+    navigate('/recommendations', { state: { selectedItem: item } });
+  };
+
+  const getIcon = (type) => {
+    switch (type) {
+      case 'workout':
+        return <Dumbbell className="w-6 h-6" />;
+      case 'diet':
+        return <Apple className="w-6 h-6" />;
+      default:
+        return <Star className="w-6 h-6" />;
+    }
+  };
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -154,6 +195,62 @@ export const Landing = () => {
           </div>
         </div>
       </section>
+
+      {/* AI Recommendations Preview */}
+      {!loading && randomContent.length > 0 && (
+        <section className="py-24 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center space-y-6 mb-16">
+              <h2 className="text-3xl md:text-5xl font-bold text-gray-900">
+                Discover Your Perfect Fit
+              </h2>
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                Explore our AI-powered recommendations. Click on any content below to see personalized suggestions tailored just for you.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+              {randomContent.map((item, index) => (
+                <div
+                  key={index}
+                  onClick={() => handleContentClick(item)}
+                  className="group bg-gray-50 p-6 rounded-2xl cursor-pointer hover:bg-blue-50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+                >
+                  <div className="flex items-center mb-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4 group-hover:bg-blue-600 transition-colors">
+                      {getIcon(item.type)}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        {item.name}
+                      </h3>
+                      <span className="text-sm text-blue-600 capitalize">{item.type}</span>
+                    </div>
+                  </div>
+
+                  {item.description && (
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{item.description}</p>
+                  )}
+
+                  <div className="text-sm text-gray-500 group-hover:text-blue-600 transition-colors">
+                    Click to see recommendations →
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-center">
+              <Link
+                to="/recommendations"
+                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-colors duration-200"
+              >
+                View All Recommendations
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* How It Works */}
       <section className="py-24 bg-white">

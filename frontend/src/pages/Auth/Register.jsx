@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { jwtDecode } from 'jwt-decode';
 import { User, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export const Register = () => {

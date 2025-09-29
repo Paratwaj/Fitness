@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { jwtDecode } from 'jwt-decode';
 import { Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export const Login = () => {
@@ -19,12 +20,17 @@ export const Login = () => {
 
     const success = await login(formData.email, formData.password);
     if (success) {
-      // Redirect based on role
-      const { user } = useAuth();
-      if (user.role === 'member') navigate('/member');
-      else if (user.role === 'trainer') navigate('/trainer');
-      else if (user.role === 'admin') navigate('/admin');
-      else navigate('/');
+      // Redirect based on role - user is set after login
+      setTimeout(() => {
+        const token = localStorage.getItem('token');
+        if (token) {
+          const decoded = jwtDecode(token);
+          if (decoded.role === 'member') navigate('/member');
+          else if (decoded.role === 'trainer') navigate('/trainer');
+          else if (decoded.role === 'admin') navigate('/admin');
+          else navigate('/');
+        }
+      }, 100);
     }
   };
 

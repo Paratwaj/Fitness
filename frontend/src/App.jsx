@@ -11,11 +11,12 @@ import { Register } from './pages/Auth/Register';
 import { MemberDashboard } from './pages/Dashboard/Member';
 import { TrainerDashboard } from './pages/Dashboard/Trainer';
 import { AdminDashboard } from './pages/Dashboard/Admin';
+import { Recommendations } from './pages/Recommendations';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, user } = useAuth();
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated()) {
     return <Navigate to="/login" replace />;
   }
 
@@ -36,13 +37,14 @@ const AppContent = () => {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/pricing" element={<Pricing />} />
-          <Route 
-            path="/login" 
-            element={user ? <Navigate to="/" replace /> : <Login />} 
+          <Route path="/recommendations" element={<Recommendations />} />
+          <Route
+            path="/login"
+            element={user ? <Navigate to="/" replace /> : <Login />}
           />
-          <Route 
-            path="/register" 
-            element={user ? <Navigate to="/" replace /> : <Register />} 
+          <Route
+            path="/register"
+            element={user ? <Navigate to="/" replace /> : <Register />}
           />
           <Route
             path="/member"
