@@ -1,62 +1,14 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { CheckCircle, Star, Crown, Zap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { CheckCircle, Star, Crown, Zap, Loader2, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { plansAPI, subscriptionsAPI, paymentsAPI } from '../services/api';
+import toast from 'react-hot-toast';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
-const plans = [
-  {
-    id: 'basic',
-    name: 'Basic',
-    price: 29,
-    duration: 1,
-    icon: Zap,
-    features: [
-      'Access to workout library',
-      'Basic nutrition guidelines',
-      'Progress tracking',
-      'Mobile app access',
-      'Community support'
-    ],
-    popular: false,
-    color: 'from-gray-600 to-gray-800'
-  },
-  {
-    id: 'premium',
-    name: 'Premium',
-    price: 79,
-    duration: 1,
-    icon: Star,
-    features: [
-      'Personal trainer assignment',
-      'Custom workout plans',
-      'Personalized nutrition plans',
-      'Weekly check-ins',
-      'Progress photo analysis',
-      'Priority support',
-      'Meal planning tools'
-    ],
-    popular: true,
-    color: 'from-blue-600 to-purple-600'
-  },
-  {
-    id: 'elite',
-    name: 'Elite',
-    price: 149,
-    duration: 1,
-    icon: Crown,
-    features: [
-      'Dedicated personal trainer',
-      'Daily check-ins',
-      'Custom meal prep plans',
-      'Supplement recommendations',
-      '1-on-1 video sessions',
-      'Advanced analytics',
-      '24/7 trainer chat support',
-      'Monthly fitness assessments'
-    ],
-    popular: false,
-    color: 'from-yellow-600 to-orange-600'
-  }
-];
+// Initialize Stripe
+const stripePromise = loadStripe('pk_test_your_stripe_publishable_key'); // Replace with actual key
 
 const testimonials = [
   {
@@ -97,6 +49,34 @@ const faqs = [
 export const Pricing = () => {
   const [billingCycle, setBillingCycle] = useState('monthly');
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
+  const [plans, setPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const { isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const response = await plansAPI.getAll();
+        setPlans(response.data);
+      } catch (error) {
+        toast.error('Failed to load plans. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPlans();
+  }, []);
+
+  const handleSubscribe = async (planId) => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    setSelectedPlan(planId);
+  };
 
   const getPrice = (price) => {
     if (billingCycle === 'yearly') {
@@ -110,6 +90,127 @@ export const Pricing = () => {
       return '2 months free';
     }
     return null;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  const PaymentForm = ({ planId, onSuccess, onCancel }) => {
+    const stripe = useStripe();
+    const elements = useElements();
+    const [formLoading, setFormLoading] = useState(false);
+    const plan = plans.find(p => p.id === planId);
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      if (!stripe || !elements) return;
+
+      setFormLoading(true);
+
+      const { error, paymentMethod } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: elements.getElement(CardElement),
+      });
+
+      if (error) {
+        toast.error(error.message);
+        setFormLoading(false);
+        return;
+      }
+
+      try {
+        // Create subscription
+        await subscriptionsAPI.create({
+          userId: user.id,
+          planId,
+          paymentMethodId: paymentMethod.id,
+          startDate: new Date().toISOString(),
+          status: 'active'
+        });
+
+        // Create payment record
+        await paymentsAPI.create({
+          userId: user.id,
+          amount: plan.price,
+          planId,
+          paymentMethod: 'card',
+          status: 'completed'
+        });
+
+        onSuccess();
+      } catch (error) {
+        toast.error('Subscription creation failed. Please try again.');
+      } finally {
+        setFormLoading(false);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl p-6 md:p-8 max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl md:text-2xl font-bold text-gray-900">
+              Subscribe to {plan?.name}
+            </h3>
+            <button
+              onClick={onCancel}
+              className="text-gray-400 hover:text-gray-600 p-1"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Card Details
+              </label>
+              <CardElement
+                className="p-3 border border-gray-300 rounded-lg bg-white"
+                options={{
+                  style: {
+                    base: {
+                      fontSize: '16px',
+                      color: '#424770',
+                      '::placeholder': {
+                        color: '#aab7c4',
+                      },
+                    },
+                  },
+                }}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={!stripe || formLoading}
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 flex items-center justify-center space-x-2 disabled:cursor-not-allowed"
+            >
+              {formLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <span>Pay ${plan?.price} / month</span>
+              )}
+            </button>
+          </form>
+
+          <button
+            onClick={onCancel}
+            className="w-full mt-4 text-gray-500 text-sm hover:text-gray-700"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -180,14 +281,14 @@ export const Pricing = () => {
                 <div className="p-8">
                   {/* Plan Header */}
                   <div className="text-center mb-8">
-                    <div className={`w-16 h-16 bg-gradient-to-br ${plan.color} rounded-xl flex items-center justify-center mx-auto mb-4`}>
-                      <plan.icon className="w-8 h-8 text-white" />
+                    <div className={`w-16 h-16 bg-gradient-to-br ${plan.color || 'from-gray-600 to-gray-800'} rounded-xl flex items-center justify-center mx-auto mb-4`}>
+                      {plan.icon ? React.createElement(plan.icon, { className: "w-8 h-8 text-white" }) : <Zap className="w-8 h-8 text-white" />}
                     </div>
                     <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
                     <div className="space-y-2">
                       <div className="flex items-center justify-center space-x-2">
                         <span className="text-4xl font-bold text-gray-900">
-                          ${getPrice(plan.price)}
+                          ${getPrice(plan.price || 0)}
                         </span>
                         <span className="text-gray-600">
                           /{billingCycle === 'yearly' ? 'year' : 'month'}
@@ -203,7 +304,7 @@ export const Pricing = () => {
 
                   {/* Features */}
                   <ul className="space-y-4 mb-8">
-                    {plan.features.map((feature, index) => (
+                    {(plan.features || []).map((feature, index) => (
                       <li key={index} className="flex items-start space-x-3">
                         <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                         <span className="text-gray-700">{feature}</span>
@@ -212,16 +313,16 @@ export const Pricing = () => {
                   </ul>
 
                   {/* CTA Button */}
-                  <Link
-                    to="/register"
+                  <button
+                    onClick={() => handleSubscribe(plan.id)}
                     className={`w-full block text-center py-4 px-6 rounded-xl font-semibold transition-all duration-300 ${
                       plan.popular
                         ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg'
                         : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
                     }`}
                   >
-                    Get Started
-                  </Link>
+                    Subscribe Now
+                  </button>
                 </div>
               </div>
             ))}
@@ -317,6 +418,21 @@ export const Pricing = () => {
           </Link>
         </div>
       </section>
+
+      {/* Payment Modal */}
+      {selectedPlan && (
+        <Elements stripe={stripePromise}>
+          <PaymentForm
+            planId={selectedPlan}
+            onSuccess={() => {
+              setSelectedPlan(null);
+              toast.success('Subscription created successfully!');
+              navigate('/member');
+            }}
+            onCancel={() => setSelectedPlan(null)}
+          />
+        </Elements>
+      )}
     </div>
   );
 };

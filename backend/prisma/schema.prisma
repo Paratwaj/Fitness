@@ -1,0 +1,160 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  name          String
+  email         String   @unique
+  password_hash String
+  role          String   // member, trainer, admin
+  avatar        String?
+  join_date     DateTime @default(now())
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  // Relations
+  subscriptions     Subscription[]
+  payments          Payment[]
+  created_workouts  Workout[]     @relation("CreatedBy")
+  created_diets     Diet[]        @relation("CreatedBy")
+  assignments       Assignment[]  @relation("AssignedTo")
+  trainer_assignments Assignment[] @relation("TrainerAssignments")
+  progress         Progress[]
+
+  @@map("users")
+}
+
+model Plan {
+  id              Int      @id @default(autoincrement())
+  name            String
+  description     String?
+  price           Decimal  @db.Decimal(10, 2)
+  duration_months Int
+  features        Json?
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  // Relations
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  plan_id     Int
+  start_date  DateTime @default(now())
+  end_date    DateTime
+  status      String   @default("active") // active, expired, cancelled
+  auto_renew  Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  // Relations
+  user   User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  plan   Plan   @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  payments Payment[]
+
+  @@map("subscriptions")
+}
+
+model Payment {
+  id              Int      @id @default(autoincrement())
+  user_id         Int
+  subscription_id Int
+  amount          Decimal  @db.Decimal(10, 2)
+  currency        String   @default("USD")
+  payment_method  String?
+  transaction_id  String?  @unique
+  status          String   @default("pending") // pending, completed, failed, refunded
+  created_at      DateTime @default(now())
+
+  // Relations
+  user         User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  subscription Subscription @relation(fields: [subscription_id], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Workout {
+  id               Int      @id @default(autoincrement())
+  name             String
+  description      String?
+  exercises        Json?
+  difficulty       String?  // beginner, intermediate, advanced
+  duration_minutes Int?
+  created_by       Int?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  // Relations
+  creator User?        @relation("CreatedBy", fields: [created_by], references: [id])
+  assignments Assignment[]
+
+  @@map("workouts")
+}
+
+model Diet {
+  id             Int      @id @default(autoincrement())
+  name           String
+  description    String?
+  meals          Json?
+  calories       Int?
+  protein_grams  Int?
+  carbs_grams    Int?
+  fat_grams      Int?
+  created_by     Int?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  // Relations
+  creator User?        @relation("CreatedBy", fields: [created_by], references: [id])
+  assignments Assignment[]
+
+  @@map("diets")
+}
+
+model Assignment {
+  id            Int      @id @default(autoincrement())
+  trainer_id    Int
+  member_id     Int
+  workout_id    Int?
+  diet_id       Int?
+  assigned_date DateTime @default(now())
+  notes         String?
+
+  // Relations
+  trainer User     @relation("TrainerAssignments", fields: [trainer_id], references: [id], onDelete: Cascade)
+  member  User     @relation("AssignedTo", fields: [member_id], references: [id], onDelete: Cascade)
+  workout Workout? @relation(fields: [workout_id], references: [id], onDelete: Cascade)
+  diet    Diet?    @relation(fields: [diet_id], references: [id], onDelete: Cascade)
+
+  @@map("assignments")
+}
+
+model Progress {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  weight      Decimal? @db.Decimal(5, 2)
+  photos      Json?    // Array of photo URLs
+  notes       String?
+  logged_date DateTime @default(now())
+  created_at  DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("progress")
+}
+
